@@ -2,7 +2,7 @@
   "name": "meuprototipeodonto",
   "license": "0BSD",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "App.tsx",
   "homepage": "https://luisaporf.github.io/Aplicativo---Teleconsultoria",
   "scripts": {
     "start": "expo start",
@@ -10,7 +10,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "clean": "rimraf dist",
-    "predeploy": "npm run clean && npx expo export",
+    "predeploy": "expo export -p web",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
