@@ -23,7 +23,10 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "router": {
+        "baseUrl": "/Aplicativo---Teleconsultoria"
+      }
     }
   }
 }
