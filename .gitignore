@@ -1,0 +1,49 @@
+# Ignorar diretórios padrão do Node.js/Expo
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Ignorar caches e builds
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+*.log
+*.tmp
+
+# Ignorar cache específico do Expo web
+.expo/web/cache/
+.expo/web/cache/production/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Ambiente e configurações locais
+.env
+.env.*
+*.local
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+jest-cache/
+jest.config.js
+
+# Build iOS/Android (caso nativo esteja incluso futuramente)
+ios/build/
+android/app/build/
+
+# Watchman e Metro
+.watchmanconfig
+metro-cache/
+
+# Misc
+*.expo
+*.tar.gz
