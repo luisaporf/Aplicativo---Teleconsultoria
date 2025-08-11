@@ -39,6 +39,34 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const { height: screenHeight } = Dimensions.get('window');
 
+  useEffect(() => {
+    // Carrega perfil salvo pelo cadastro, se existir
+    let mounted = true;
+    import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) => {
+      AsyncStorage.getItem('userProfile')
+        .then((data) => {
+          if (!mounted) return;
+          if (data) {
+            const parsed = JSON.parse(data);
+            setProfile((prev) => ({
+              ...prev,
+              nomeCompleto: parsed.nomeCompleto ?? prev.nomeCompleto,
+              email: parsed.email ?? prev.email,
+              funcaoCargo: parsed.funcaoCargo ?? prev.funcaoCargo,
+              unidadeSaude: parsed.unidadeSaude ?? prev.unidadeSaude,
+              municipio: parsed.municipio ?? prev.municipio,
+              telefone: parsed.telefone ?? prev.telefone,
+            }));
+          }
+        })
+        .catch(() => {});
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleChange = (field: string, value: string) => {
     setProfile(prev => ({ ...prev, [field]: value }));
   };

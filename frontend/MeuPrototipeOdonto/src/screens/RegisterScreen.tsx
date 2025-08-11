@@ -1,8 +1,9 @@
 // src/screens/RegisterScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors } from '../constants/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Importe a tipagem RootStackParamList do App.tsx
 import { RootStackParamList } from '../../App'; // Ajuste o caminho se necessário
@@ -18,6 +19,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [nomeCompleto, setNomeCompleto] = useState<string>('');
   const [cro, setCro] = useState<string>('');
   const [funcaoCargo, setFuncaoCargo] = useState<string>('');
+  const [outraProfissao, setOutraProfissao] = useState<string>('');
   const [unidadeSaude, setUnidadeSaude] = useState<string>('');
   const [municipio, setMunicipio] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -25,7 +27,9 @@ export default function RegisterScreen({ navigation }: Props) {
   const [cpf, setCpf] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [globalErrorMessage, setGlobalErrorMessage] = useState<string>('');
 
   // Função de validação de CPF (formato básico)
   const isValidCPF = (cpf: string): boolean => {
@@ -35,43 +39,61 @@ export default function RegisterScreen({ navigation }: Props) {
     return true;
   };
 
-  const handleRegister = () => {
-    setErrorMessage(''); // Limpa a mensagem de erro anterior
+  const handleRegister = async () => {
+    setSuccessMessage('');
+    setGlobalErrorMessage('');
+    setErrors({});
 
-    // 1. Validação de campos vazios (incluindo os novos)
-    if (!nomeCompleto || !cro || !funcaoCargo || !unidadeSaude || !municipio || !email || !telefone || !cpf || !password || !confirmPassword) {
-      setErrorMessage('Por favor, preencha todos os campos obrigatórios.');
+    // validação detalhada
+    const newErrors: Record<string, string> = {};
+    if (!nomeCompleto.trim()) newErrors.nomeCompleto = 'Informe seu nome completo.';
+    if (!cro.trim()) newErrors.cro = 'Informe o CRO.';
+    if (!funcaoCargo) newErrors.funcaoCargo = 'Selecione sua função/cargo.';
+    if (funcaoCargo === 'Outro' && !outraProfissao.trim()) newErrors.outraProfissao = 'Descreva sua profissão.';
+    if (!unidadeSaude.trim()) newErrors.unidadeSaude = 'Informe a unidade de saúde.';
+    if (!municipio.trim()) newErrors.municipio = 'Informe o município.';
+    if (!email.trim()) newErrors.email = 'Informe o e-mail.';
+    else if (!email.includes('@') || !email.includes('.')) newErrors.email = 'E-mail inválido.';
+    if (!telefone.trim()) newErrors.telefone = 'Informe o telefone.';
+    if (!cpf.trim()) newErrors.cpf = 'Informe o CPF (apenas números).';
+    else if (!isValidCPF(cpf)) newErrors.cpf = 'CPF inválido. Use 11 dígitos.';
+    if (!password.trim()) newErrors.password = 'Crie uma senha.';
+    else if (password.length < 6) newErrors.password = 'A senha deve ter no mínimo 6 caracteres.';
+    if (!confirmPassword.trim()) newErrors.confirmPassword = 'Confirme sua senha.';
+    else if (password !== confirmPassword) newErrors.confirmPassword = 'As senhas não coincidem.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setGlobalErrorMessage('Falha no cadastro. Verifique os campos destacados.');
       return;
     }
 
-    // 2. Validação de formato da senha
-    if (password.length < 6) {
-      setErrorMessage('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
+    // Salvar dados validados no perfil (AsyncStorage)
+    const profileToSave = {
+      nomeCompleto: nomeCompleto.trim(),
+      email: email.trim(),
+      telefone: telefone.trim(),
+      unidadeSaude: unidadeSaude.trim(),
+      municipio: municipio.trim(),
+      funcaoCargo: funcaoCargo || 'Outro',
+      outraProfissao: funcaoCargo === 'Outro' ? outraProfissao.trim() : '',
+      cro: cro.trim(),
+      cpf: cpf.replace(/\D/g, ''),
+    };
 
-    // 3. Validação de confirmação de senha
-    if (password !== confirmPassword) {
-      setErrorMessage('As senhas não coincidem.');
-      return;
+    try {
+      await AsyncStorage.setItem('userProfile', JSON.stringify(profileToSave));
+      setSuccessMessage('Cadastro realizado com sucesso! Faça login para continuar.');
+      setTimeout(() => {
+        navigation.navigate('Login');
+      }, 1200);
+    } catch {
+      setErrors({ storage: 'Falha ao salvar dados localmente. Tente novamente.' });
+      setGlobalErrorMessage('Falha no cadastro. Tente novamente.');
     }
-
-    // 4. Validação de formato do CPF
-    if (!isValidCPF(cpf)) {
-      setErrorMessage('O CPF inserido não é válido. Verifique o formato (apenas números).');
-      return;
-    }
-
-    // 5. Validação de formato do Email (básica)
-    if (!email.includes('@') || !email.includes('.')) {
-        setErrorMessage('O email inserido não é válido. Verifique o formato.');
-        return;
-    }
-
-    // --- SIMULAÇÃO DE CADASTRO COM SUCESSO ---
-    Alert.alert('Cadastro Realizado', 'Sua conta foi criada com sucesso! Você já pode fazer login.');
-    navigation.navigate('Login');
   };
+
+  const renderError = (field: string) => (errors[field] ? <Text style={styles.fieldError}>{errors[field]}</Text> : null);
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.scrollView}>
@@ -80,21 +102,23 @@ export default function RegisterScreen({ navigation }: Props) {
 
         <Text style={styles.title}>Criar nova Conta</Text>
 
-        {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
+        {!!successMessage && <Text style={styles.successBanner}>{successMessage}</Text>}
+        {!!globalErrorMessage && <Text style={styles.errorBanner}>{globalErrorMessage}</Text>}
+        {!!errors.storage && <Text style={styles.errorBanner}>{errors.storage}</Text>}
 
         <View style={styles.formSection}> {/* Seção para agrupar campos e adicionar padding */}
-          <Text style={styles.label}>NOME COMPLETO</Text>
+          <Text style={styles.label}>NOME COMPLETO <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.nomeCompleto && styles.inputError]}
             placeholder="Seu nome completo"
             placeholderTextColor="#999"
             value={nomeCompleto}
             onChangeText={setNomeCompleto}
           />
 
-          <Text style={styles.label}>CRO</Text>
+          <Text style={styles.label}>CRO <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.cro && styles.inputError]}
             placeholder="Número do CRO"
             placeholderTextColor="#999"
             value={cro}
@@ -102,34 +126,49 @@ export default function RegisterScreen({ navigation }: Props) {
             keyboardType="numeric"
           />
 
-          <Text style={styles.label}>CARGO/FUNÇÃO</Text>
+          <Text style={styles.label}>CARGO/FUNÇÃO <Text style={styles.required}>*</Text></Text>
           <View style={styles.radioGroup}>
             <RadioButton label="Dentista" selected={funcaoCargo === 'Dentista'} onPress={() => setFuncaoCargo('Dentista')} />
             <RadioButton label="Médico" selected={funcaoCargo === 'Médico'} onPress={() => setFuncaoCargo('Médico')} />
             <RadioButton label="Outro" selected={funcaoCargo === 'Outro'} onPress={() => setFuncaoCargo('Outro')} />
           </View>
+          {renderError('funcaoCargo')}
 
-          <Text style={styles.label}>UNIDADE DE SAÚDE</Text>
+          {funcaoCargo === 'Outro' && (
+            <>
+              <Text style={styles.label}>DESCREVA SUA PROFISSÃO <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={[styles.input, errors.outraProfissao && styles.inputError]}
+                placeholder="Ex.: Auxiliar de Saúde Bucal"
+                placeholderTextColor="#999"
+                value={outraProfissao}
+                onChangeText={setOutraProfissao}
+              />
+              {renderError('outraProfissao')}
+            </>
+          )}
+
+          <Text style={styles.label}>UNIDADE DE SAÚDE <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.unidadeSaude && styles.inputError]}
             placeholder="Nome da sua unidade de saúde"
             placeholderTextColor="#999"
             value={unidadeSaude}
             onChangeText={setUnidadeSaude}
           />
 
-          <Text style={styles.label}>MUNICÍPIO</Text>
+          <Text style={styles.label}>MUNICÍPIO <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.municipio && styles.inputError]}
             placeholder="Seu município"
             placeholderTextColor="#999"
             value={municipio}
             onChangeText={setMunicipio}
           />
 
-          <Text style={styles.label}>EMAIL INSTITUCIONAL</Text>
+          <Text style={styles.label}>EMAIL INSTITUCIONAL <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.email && styles.inputError]}
             placeholder="seu.email@instituicao.com"
             placeholderTextColor="#999"
             value={email}
@@ -138,9 +177,9 @@ export default function RegisterScreen({ navigation }: Props) {
             autoCapitalize="none"
           />
 
-          <Text style={styles.label}>TELEFONE</Text>
+          <Text style={styles.label}>TELEFONE <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.telefone && styles.inputError]}
             placeholder="(XX) XXXXX-XXXX"
             placeholderTextColor="#999"
             value={telefone}
@@ -148,9 +187,9 @@ export default function RegisterScreen({ navigation }: Props) {
             keyboardType="phone-pad"
           />
 
-          <Text style={styles.label}>CPF</Text>
+          <Text style={styles.label}>CPF <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.cpf && styles.inputError]}
             placeholder="XXX.XXX.XXX-XX"
             placeholderTextColor="#999"
             value={cpf}
@@ -159,9 +198,9 @@ export default function RegisterScreen({ navigation }: Props) {
             maxLength={14}
           />
 
-          <Text style={styles.label}>SENHA</Text>
+          <Text style={styles.label}>SENHA <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.password && styles.inputError]}
             placeholder="Crie sua senha"
             placeholderTextColor="#999"
             secureTextEntry
@@ -169,9 +208,9 @@ export default function RegisterScreen({ navigation }: Props) {
             onChangeText={setPassword}
           />
 
-          <Text style={styles.label}>CONFIRMAR SENHA</Text>
+          <Text style={styles.label}>CONFIRMAR SENHA <Text style={styles.required}>*</Text></Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.confirmPassword && styles.inputError]}
             placeholder="Confirme sua senha"
             placeholderTextColor="#999"
             secureTextEntry
@@ -244,6 +283,32 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
+  successBanner: {
+    width: '90%',
+    backgroundColor: '#e6f4ea',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2e7d32',
+    color: '#1b5e20',
+    fontSize: 14,
+    fontWeight: '600',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    textAlign: 'left',
+  },
+  errorBanner: {
+    width: '90%',
+    backgroundColor: '#fdecea',
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '600',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    textAlign: 'left',
+  },
   formSection: {
     width: '90%',
     backgroundColor: colors.white,
@@ -276,6 +341,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primaryText,
     backgroundColor: colors.white,
+  },
+  inputError: {
+    borderColor: '#d32f2f',
   },
   radioGroup: {
     flexDirection: 'row',
