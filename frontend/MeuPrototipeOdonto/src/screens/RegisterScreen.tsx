@@ -16,6 +16,7 @@ type Props = {
 };
 
 export default function RegisterScreen({ navigation }: Props) {
+  const [userType, setUserType] = useState<'solicitante' | 'especialista' | ''>('');
   const [nomeCompleto, setNomeCompleto] = useState<string>('');
   const [cro, setCro] = useState<string>('');
   const [funcaoCargo, setFuncaoCargo] = useState<string>('');
@@ -27,40 +28,58 @@ export default function RegisterScreen({ navigation }: Props) {
   const [cpf, setCpf] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [codigoConvite, setCodigoConvite] = useState<string>('');
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState<string>('');
   const [globalErrorMessage, setGlobalErrorMessage] = useState<string>('');
 
   // Função de validação de CPF (formato básico)
-  const isValidCPF = (cpf: string): boolean => {
-    const cleanedCpf = cpf.replace(/\D/g, '');
+  const isValidCPF = (cpfValue: string): boolean => {
+    const cleanedCpf = cpfValue.replace(/\D/g, '');
     if (cleanedCpf.length !== 11) return false;
     if (/^(\d)\1{10}$/.test(cleanedCpf)) return false;
     return true;
   };
+
+  const isValidEmail = (value: string): boolean => /.+@.+\..+/.test(value);
 
   const handleRegister = async () => {
     setSuccessMessage('');
     setGlobalErrorMessage('');
     setErrors({});
 
-    // validação detalhada
+    if (!userType) {
+      setGlobalErrorMessage('Selecione seu tipo de usuário.');
+      return;
+    }
+
+    if (userType === 'especialista') {
+      if (!codigoConvite.trim()) {
+        setErrors({ codigoConvite: 'Código de convite é obrigatório para especialistas.' });
+        setGlobalErrorMessage('Falha no cadastro. Verifique os campos destacados.');
+        return;
+      }
+      if (!email.includes('@usp.br')) {
+        setErrors({ email: 'E-mail institucional @usp.br é obrigatório para especialistas.' });
+        setGlobalErrorMessage('Falha no cadastro. Verifique os campos destacados.');
+        return;
+      }
+    }
+
     const newErrors: Record<string, string> = {};
     if (!nomeCompleto.trim()) newErrors.nomeCompleto = 'Informe seu nome completo.';
-    if (!cro.trim()) newErrors.cro = 'Informe o CRO.';
-    if (!funcaoCargo) newErrors.funcaoCargo = 'Selecione sua função/cargo.';
-    if (funcaoCargo === 'Outro' && !outraProfissao.trim()) newErrors.outraProfissao = 'Descreva sua profissão.';
+    if (userType === 'solicitante' && !cro.trim()) newErrors.cro = 'Informe o CRO.';
+    if (userType === 'solicitante' && !funcaoCargo) newErrors.funcaoCargo = 'Selecione sua função/cargo.';
+    if (userType === 'solicitante' && funcaoCargo === 'Outro' && !outraProfissao.trim()) newErrors.outraProfissao = 'Descreva sua profissão.';
     if (!unidadeSaude.trim()) newErrors.unidadeSaude = 'Informe a unidade de saúde.';
     if (!municipio.trim()) newErrors.municipio = 'Informe o município.';
-    if (!email.trim()) newErrors.email = 'Informe o e-mail.';
-    else if (!email.includes('@') || !email.includes('.')) newErrors.email = 'E-mail inválido.';
+    if (!email.trim()) newErrors.email = 'Informe o e-mail.'; else if (!isValidEmail(email)) newErrors.email = 'E-mail inválido.';
     if (!telefone.trim()) newErrors.telefone = 'Informe o telefone.';
-    if (!cpf.trim()) newErrors.cpf = 'Informe o CPF (apenas números).';
-    else if (!isValidCPF(cpf)) newErrors.cpf = 'CPF inválido. Use 11 dígitos.';
-    if (!password.trim()) newErrors.password = 'Crie uma senha.';
-    else if (password.length < 6) newErrors.password = 'A senha deve ter no mínimo 6 caracteres.';
-    if (!confirmPassword.trim()) newErrors.confirmPassword = 'Confirme sua senha.';
-    else if (password !== confirmPassword) newErrors.confirmPassword = 'As senhas não coincidem.';
+    if (userType === 'solicitante' && !cpf.trim()) newErrors.cpf = 'Informe o CPF (apenas números).';
+    else if (userType === 'solicitante' && !isValidCPF(cpf)) newErrors.cpf = 'CPF inválido. Use 11 dígitos.';
+    if (!password.trim()) newErrors.password = 'Crie uma senha.'; else if (password.length < 6) newErrors.password = 'A senha deve ter no mínimo 6 caracteres.';
+    if (!confirmPassword.trim()) newErrors.confirmPassword = 'Confirme sua senha.'; else if (password !== confirmPassword) newErrors.confirmPassword = 'As senhas não coincidem.';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -68,25 +87,33 @@ export default function RegisterScreen({ navigation }: Props) {
       return;
     }
 
-    // Salvar dados validados no perfil (AsyncStorage)
     const profileToSave = {
+      userType,
       nomeCompleto: nomeCompleto.trim(),
       email: email.trim(),
       telefone: telefone.trim(),
       unidadeSaude: unidadeSaude.trim(),
       municipio: municipio.trim(),
-      funcaoCargo: funcaoCargo || 'Outro',
-      outraProfissao: funcaoCargo === 'Outro' ? outraProfissao.trim() : '',
-      cro: cro.trim(),
-      cpf: cpf.replace(/\D/g, ''),
+      funcaoCargo: userType === 'solicitante' ? (funcaoCargo || 'Outro') : 'Especialista FORP-USP',
+      outraProfissao: userType === 'solicitante' && funcaoCargo === 'Outro' ? outraProfissao.trim() : '',
+      cro: userType === 'solicitante' ? cro.trim() : '',
+      cpf: userType === 'solicitante' ? cpf.replace(/\D/g, '') : '',
+      codigoConvite: userType === 'especialista' ? codigoConvite.trim() : '',
+    };
+
+    const loginCredentials = {
+      identifier: userType === 'solicitante' ? cpf.replace(/\D/g, '') : email.trim(),
+      password,
+      userType,
     };
 
     try {
       await AsyncStorage.setItem('userProfile', JSON.stringify(profileToSave));
+      await AsyncStorage.setItem('loginCredentials', JSON.stringify(loginCredentials));
       setSuccessMessage('Cadastro realizado com sucesso! Faça login para continuar.');
       setTimeout(() => {
         navigation.navigate('Login');
-      }, 1200);
+      }, 900);
     } catch {
       setErrors({ storage: 'Falha ao salvar dados localmente. Tente novamente.' });
       setGlobalErrorMessage('Falha no cadastro. Tente novamente.');
@@ -102,122 +129,182 @@ export default function RegisterScreen({ navigation }: Props) {
 
         <Text style={styles.title}>Criar nova Conta</Text>
 
+        <View style={styles.userTypeSection}>
+          <Text style={styles.sectionTitle}>Selecione seu perfil:</Text>
+          <View style={styles.userTypeButtons}>
+            <TouchableOpacity
+              style={[styles.userTypeButton, userType === 'solicitante' && styles.userTypeButtonActive]}
+              onPress={() => setUserType('solicitante')}
+            >
+              <Text style={[styles.userTypeButtonText, userType === 'solicitante' && styles.userTypeButtonTextActive]}>
+                Profissional da Atenção Primária
+              </Text>
+              <Text style={styles.userTypeButtonSubtext}>
+                Cirurgiões-dentistas e outros profissionais de saúde
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.userTypeButton, userType === 'especialista' && styles.userTypeButtonActive]}
+              onPress={() => setUserType('especialista')}
+            >
+              <Text style={[styles.userTypeButtonText, userType === 'especialista' && styles.userTypeButtonTextActive]}>
+                Especialista FORP-USP
+              </Text>
+              <Text style={styles.userTypeButtonSubtext}>
+                Especialistas em Periodontia da FORP-USP
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {!userType && globalErrorMessage === 'Selecione seu tipo de usuário.' && (
+            <Text style={styles.fieldError}>Selecione seu tipo de usuário para continuar.</Text>
+          )}
+        </View>
+
         {!!successMessage && <Text style={styles.successBanner}>{successMessage}</Text>}
         {!!globalErrorMessage && <Text style={styles.errorBanner}>{globalErrorMessage}</Text>}
         {!!errors.storage && <Text style={styles.errorBanner}>{errors.storage}</Text>}
 
-        <View style={styles.formSection}> {/* Seção para agrupar campos e adicionar padding */}
-          <Text style={styles.label}>NOME COMPLETO <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.nomeCompleto && styles.inputError]}
-            placeholder="Seu nome completo"
-            placeholderTextColor="#999"
-            value={nomeCompleto}
-            onChangeText={setNomeCompleto}
-          />
+        {userType && (
+          <View style={styles.formSection}> {/* Seção para agrupar campos e adicionar padding */}
+            <Text style={styles.label}>NOME COMPLETO <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.nomeCompleto && styles.inputError]}
+              placeholder="Seu nome completo"
+              placeholderTextColor="#999"
+              value={nomeCompleto}
+              onChangeText={setNomeCompleto}
+            />
+            {renderError('nomeCompleto')}
 
-          <Text style={styles.label}>CRO <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.cro && styles.inputError]}
-            placeholder="Número do CRO"
-            placeholderTextColor="#999"
-            value={cro}
-            onChangeText={setCro}
-            keyboardType="numeric"
-          />
+            {userType === 'solicitante' && (
+              <>
+                <Text style={styles.label}>CRO <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, errors.cro && styles.inputError]}
+                  placeholder="Número do CRO"
+                  placeholderTextColor="#999"
+                  value={cro}
+                  onChangeText={setCro}
+                  keyboardType="numeric"
+                />
+                {renderError('cro')}
 
-          <Text style={styles.label}>CARGO/FUNÇÃO <Text style={styles.required}>*</Text></Text>
-          <View style={styles.radioGroup}>
-            <RadioButton label="Dentista" selected={funcaoCargo === 'Dentista'} onPress={() => setFuncaoCargo('Dentista')} />
-            <RadioButton label="Médico" selected={funcaoCargo === 'Médico'} onPress={() => setFuncaoCargo('Médico')} />
-            <RadioButton label="Outro" selected={funcaoCargo === 'Outro'} onPress={() => setFuncaoCargo('Outro')} />
+                <Text style={styles.label}>CARGO/FUNÇÃO <Text style={styles.required}>*</Text></Text>
+                <View style={styles.radioGroup}>
+                  <RadioButton label="Dentista" selected={funcaoCargo === 'Dentista'} onPress={() => setFuncaoCargo('Dentista')} />
+                  <RadioButton label="Médico" selected={funcaoCargo === 'Médico'} onPress={() => setFuncaoCargo('Médico')} />
+                  <RadioButton label="Outro" selected={funcaoCargo === 'Outro'} onPress={() => setFuncaoCargo('Outro')} />
+                </View>
+                {renderError('funcaoCargo')}
+
+                {funcaoCargo === 'Outro' && (
+                  <>
+                    <Text style={styles.label}>DESCREVA SUA PROFISSÃO <Text style={styles.required}>*</Text></Text>
+                    <TextInput
+                      style={[styles.input, errors.outraProfissao && styles.inputError]}
+                      placeholder="Ex.: Auxiliar de Saúde Bucal"
+                      placeholderTextColor="#999"
+                      value={outraProfissao}
+                      onChangeText={setOutraProfissao}
+                    />
+                    {renderError('outraProfissao')}
+                  </>
+                )}
+
+                <Text style={styles.label}>CPF <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, errors.cpf && styles.inputError]}
+                  placeholder="XXX.XXX.XXX-XX"
+                  placeholderTextColor="#999"
+                  value={cpf}
+                  onChangeText={setCpf}
+                  keyboardType="numeric"
+                  maxLength={14}
+                />
+                {renderError('cpf')}
+              </>
+            )}
+
+            <Text style={styles.label}>UNIDADE DE SAÚDE <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.unidadeSaude && styles.inputError]}
+              placeholder="Nome da sua unidade de saúde"
+              placeholderTextColor="#999"
+              value={unidadeSaude}
+              onChangeText={setUnidadeSaude}
+            />
+            {renderError('unidadeSaude')}
+
+            <Text style={styles.label}>MUNICÍPIO <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.municipio && styles.inputError]}
+              placeholder="Seu município"
+              placeholderTextColor="#999"
+              value={municipio}
+              onChangeText={setMunicipio}
+            />
+            {renderError('municipio')}
+
+            <Text style={styles.label}>EMAIL INSTITUCIONAL <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.email && styles.inputError]}
+              placeholder={userType === 'especialista' ? 'seu.email@usp.br' : 'seu.email@instituicao.com'}
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {renderError('email')}
+
+            <Text style={styles.label}>TELEFONE <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.telefone && styles.inputError]}
+              placeholder="(XX) XXXXX-XXXX"
+              placeholderTextColor="#999"
+              value={telefone}
+              onChangeText={setTelefone}
+              keyboardType="phone-pad"
+            />
+            {renderError('telefone')}
+
+            {userType === 'especialista' && (
+              <>
+                <Text style={styles.label}>CÓDIGO DE CONVITE <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={[styles.input, errors.codigoConvite && styles.inputError]}
+                  placeholder="Código fornecido pela coordenação"
+                  placeholderTextColor="#999"
+                  value={codigoConvite}
+                  onChangeText={setCodigoConvite}
+                />
+                {renderError('codigoConvite')}
+              </>
+            )}
+
+            <Text style={styles.label}>SENHA <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.password && styles.inputError]}
+              placeholder="Crie sua senha"
+              placeholderTextColor="#999"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+            {renderError('password')}
+
+            <Text style={styles.label}>CONFIRMAR SENHA <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={[styles.input, errors.confirmPassword && styles.inputError]}
+              placeholder="Confirme sua senha"
+              placeholderTextColor="#999"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            {renderError('confirmPassword')}
           </View>
-          {renderError('funcaoCargo')}
-
-          {funcaoCargo === 'Outro' && (
-            <>
-              <Text style={styles.label}>DESCREVA SUA PROFISSÃO <Text style={styles.required}>*</Text></Text>
-              <TextInput
-                style={[styles.input, errors.outraProfissao && styles.inputError]}
-                placeholder="Ex.: Auxiliar de Saúde Bucal"
-                placeholderTextColor="#999"
-                value={outraProfissao}
-                onChangeText={setOutraProfissao}
-              />
-              {renderError('outraProfissao')}
-            </>
-          )}
-
-          <Text style={styles.label}>UNIDADE DE SAÚDE <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.unidadeSaude && styles.inputError]}
-            placeholder="Nome da sua unidade de saúde"
-            placeholderTextColor="#999"
-            value={unidadeSaude}
-            onChangeText={setUnidadeSaude}
-          />
-
-          <Text style={styles.label}>MUNICÍPIO <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.municipio && styles.inputError]}
-            placeholder="Seu município"
-            placeholderTextColor="#999"
-            value={municipio}
-            onChangeText={setMunicipio}
-          />
-
-          <Text style={styles.label}>EMAIL INSTITUCIONAL <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.email && styles.inputError]}
-            placeholder="seu.email@instituicao.com"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <Text style={styles.label}>TELEFONE <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.telefone && styles.inputError]}
-            placeholder="(XX) XXXXX-XXXX"
-            placeholderTextColor="#999"
-            value={telefone}
-            onChangeText={setTelefone}
-            keyboardType="phone-pad"
-          />
-
-          <Text style={styles.label}>CPF <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.cpf && styles.inputError]}
-            placeholder="XXX.XXX.XXX-XX"
-            placeholderTextColor="#999"
-            value={cpf}
-            onChangeText={setCpf}
-            keyboardType="numeric"
-            maxLength={14}
-          />
-
-          <Text style={styles.label}>SENHA <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.password && styles.inputError]}
-            placeholder="Crie sua senha"
-            placeholderTextColor="#999"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
-
-          <Text style={styles.label}>CONFIRMAR SENHA <Text style={styles.required}>*</Text></Text>
-          <TextInput
-            style={[styles.input, errors.confirmPassword && styles.inputError]}
-            placeholder="Confirme sua senha"
-            placeholderTextColor="#999"
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-        </View> {/* Fim da formSection */}
+        )}
 
         <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
           <Text style={styles.buttonText}>Cadastrar</Text>
@@ -265,24 +352,53 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     marginBottom: 20,
   },
-  errorMessage: {
+  userTypeSection: {
     width: '90%',
-    backgroundColor: '#fdecea', // tom claro de vermelho
-    borderLeftWidth: 4,
-    borderLeftColor: '#f44336', // tom forte de vermelho
-    color: colors.error,
-    fontSize: 14,
-    fontWeight: '600',
-    padding: 12,
-    borderRadius: 8,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primaryText,
     marginBottom: 15,
-    textAlign: 'left',
+    textAlign: 'center',
+  },
+  userTypeButtons: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  userTypeButton: {
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.lightGray,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
+  userTypeButtonActive: {
+    borderColor: colors.mediumBlue,
+    backgroundColor: colors.lightBlue,
+  },
+  userTypeButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primaryText,
+    marginBottom: 4,
+  },
+  userTypeButtonTextActive: {
+    color: colors.darkBlue,
+  },
+  userTypeButtonSubtext: {
+    fontSize: 12,
+    color: colors.gray,
+    textAlign: 'center',
+  },
+
   successBanner: {
     width: '90%',
     backgroundColor: '#e6f4ea',
@@ -330,6 +446,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 12,
   },
+  required: {
+    color: '#d32f2f',
+  },
   input: {
     width: '100%',
     height: 50,
@@ -341,6 +460,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primaryText,
     backgroundColor: colors.white,
+  },
+  fieldError: {
+    width: '100%',
+    color: '#d32f2f',
+    fontSize: 12,
+    marginBottom: 6,
+    alignSelf: 'flex-start',
   },
   inputError: {
     borderColor: '#d32f2f',

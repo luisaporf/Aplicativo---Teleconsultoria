@@ -1,6 +1,6 @@
 // src/screens/NewCaseFormScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors } from '../constants/colors';
 
@@ -15,6 +15,7 @@ import Step4ComplementaryExams from '../components/NewCaseForm/Step4Complementar
 import Step5PSR from '../components/NewCaseForm/Step5PSR';
 import Step6ConductedActions from '../components/NewCaseForm/Step6ConductedActions';
 import Step7ConsultationObjective from '../components/NewCaseForm/Step7ConsultationObjective';
+import { simulatedCases } from '../data/simulatedCases';
 
 // Tipagem para navegação
 type NewCaseFormScreenNavigationProp = StackNavigationProp<RootStackParamList, 'NewCaseForm'>;
@@ -78,24 +79,22 @@ export default function NewCaseFormScreen({ navigation }: Props) {
 
   const handleSubmit = () => {
     const newCase = {
-      id: `s${Math.random().toString(36).substring(7)}`,
-      type: formData.consultationObjective[0] || 'Novo Caso',
+      id: `s${Math.random().toString(36).slice(2, 8)}`,
+      type: formData.consultationObjective[0] || 'Orientação Diagnóstica',
       patientInitials: formData.patientInitials || 'NP',
       date: new Date().toLocaleDateString('pt-BR'),
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       status: 'pending',
       motivoTeleconsultoria: formData.consultationObjective.join(', '),
-      duvidaClinica: formData.mainComplaint,
-    };
+      duvidaClinica: formData.mainComplaint || '—',
+      isNew: true, // flag para o Dashboard iniciar a simulação
+    } as any;
 
-    Alert.alert(
-      'Caso Enviado!',
-      'Sua teleconsultoria foi enviada com sucesso para os especialistas da FORP-USP. Você pode acompanhar o status em "Meus Casos".',
-      [{
-        text: 'OK',
-        onPress: () => navigation.navigate('Dashboard', { newCase: newCase, activeTab: 'pending' })
-      }]
-    );
+    // Insere no array de simulação imediatamente
+    simulatedCases.unshift(newCase);
+
+    // Navega para Dashboard na aba Pendentes (sem passar objetos grandes nos params)
+    navigation.navigate('Dashboard');
   };
 
   const renderStep = () => {
@@ -115,7 +114,7 @@ export default function NewCaseFormScreen({ navigation }: Props) {
       case 7:
         return <Step7ConsultationObjective formData={formData} updateFormData={updateFormData} />;
       default:
-        return <Text>Etapa não encontrada</Text>;
+        return <Text>Etapa não encontrada</Text> as any;
     }
   };
 

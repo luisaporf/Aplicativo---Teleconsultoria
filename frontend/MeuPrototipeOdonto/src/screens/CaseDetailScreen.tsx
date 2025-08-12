@@ -1,5 +1,5 @@
 // src/screens/CaseDetailScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -20,7 +20,6 @@ type Props = {
   navigation: CaseDetailScreenNavigationProp;
 };
 
-// Definição da interface para uma mensagem de chat
 interface ChatMessage {
   id: string;
   sender: 'solicitante' | 'especialista';
@@ -29,11 +28,10 @@ interface ChatMessage {
   attachment?: string;
 }
 
-// Dados simulados do usuário logado (pode vir do login simulado)
-const currentUser: { type: 'solicitante' | 'especialista'; name: string; specialistName: string; } = {
-  type: 'solicitante', // Mude para 'especialista' para testar a visão do especialista
-  name: 'Dr. João da Silva', // Nome do solicitante
-  specialistName: 'Mateus Fernandes', // Nome do especialista para simular respostas
+const currentUser: { type: 'solicitante' | 'especialista'; name: string; specialistName: string } = {
+  type: 'solicitante',
+  name: 'Dr. João da Silva',
+  specialistName: 'Equipe FORP-USP',
 };
 
 export default function CaseDetailScreen({ route, navigation }: Props) {
@@ -41,11 +39,14 @@ export default function CaseDetailScreen({ route, navigation }: Props) {
   const [caseData, setCaseData] = useState<any>(null);
   const [currentMessage, setCurrentMessage] = useState<string>('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [showNotif, setShowNotif] = useState<boolean>(false);
+  const responseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const foundCase = simulatedCases.find(c => c.id === caseId);
     if (foundCase) {
-      setCaseData(foundCase);
+      setCaseData({ ...foundCase });
+      // Se já houver resposta, inicializa mensagens simuladas
       if (foundCase.specialistResponse) {
         setChatMessages([
           {
@@ -54,28 +55,50 @@ export default function CaseDetailScreen({ route, navigation }: Props) {
             message: foundCase.specialistResponse,
             timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           },
-          {
-            id: 'chat2',
-            sender: 'solicitante',
-            message: 'Obrigado pela orientação! Teria algum material de apoio para o paciente?',
-            timestamp: new Date(Date.now() + 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          },
-          {
-            id: 'chat3',
-            sender: 'especialista',
-            message: 'Sim, vou anexar um material educativo. Sempre à disposição.',
-            timestamp: new Date(Date.now() + 2000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            attachment: 'MaterialEducativo_DiabetesPeriodontite.pdf',
-          },
         ]);
-      } else {
-        setChatMessages([]);
       }
     } else {
       Alert.alert('Erro', 'Caso não encontrado.');
       navigation.goBack();
     }
   }, [caseId, navigation]);
+
+  // Simulação: Se status pendente do solicitante, após 10s mover para em análise e preencher resposta
+  useEffect(() => {
+    if (!caseData) return;
+    if (currentUser.type === 'solicitante' && caseData.status === 'pending' && !caseData.specialistResponse) {
+      responseTimerRef.current = setTimeout(() => {
+        const simulatedResponse = {
+          specialistResponse:
+            'Resposta orientativa: Iniciar terapia periodontal básica e reavaliar em 30 dias.\nEncaminhamento necessário? Não.\nTempo sugerido de retorno ou nova consulta: 30 dias.\nObservações clínicas: Reforçar higiene oral e controle de placa.',
+          encaminhamento: 'Não',
+          tempoRetorno: '30 dias',
+          observacoes: 'Reforçar higiene oral.',
+        };
+        // Atualiza local
+        setCaseData((prev: any) => ({ ...prev, ...simulatedResponse, status: 'in_analysis_solicitante' }));
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: `chat${prev.length + 1}`,
+            sender: 'especialista',
+            message: 'Olá! Já revisei seu caso. Veja a resposta orientativa acima. Fico à disposição para dúvidas.',
+            timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+        setShowNotif(true);
+        setTimeout(() => setShowNotif(false), 4000);
+        // Atualiza também no array de simulação para refletir no Dashboard
+        const idx = simulatedCases.findIndex(c => c.id === caseId);
+        if (idx >= 0) {
+          simulatedCases[idx] = { ...simulatedCases[idx], ...simulatedResponse, status: 'in_analysis_solicitante' as any } as any;
+        }
+      }, 10000);
+    }
+    return () => {
+      if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
+    };
+  }, [caseData?.status, caseData?.specialistResponse]);
 
   if (!caseData) {
     return (
@@ -86,182 +109,148 @@ export default function CaseDetailScreen({ route, navigation }: Props) {
   }
 
   const handleSendMessage = () => {
-    if (currentMessage.trim() === '') return;
-
+    if (currentMessage.trim() === '' || caseData.status === 'responded_solicitante') return;
     const newMessage: ChatMessage = {
       id: `chat${chatMessages.length + 1}`,
       sender: currentUser.type,
       message: currentMessage.trim(),
       timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     };
-
     setChatMessages(prevMessages => [...prevMessages, newMessage]);
     setCurrentMessage('');
-
-    setTimeout(() => {
-      const simulatedResponse: ChatMessage = {
-        id: `chat${chatMessages.length + 2}`,
-        sender: currentUser.type === 'solicitante' ? 'especialista' : 'solicitante',
-        message: currentUser.type === 'solicitante'
-          ? 'Ok, entendi sua pergunta. Vou analisar e te respondo em breve.'
-          : 'Ciente, Dr. (a).',
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      };
-      setChatMessages(prevMessages => [...prevMessages, simulatedResponse]);
-    }, 1500);
   };
 
-  const handleSpecialistFormalResponse = () => {
-    Alert.alert('Resposta Enviada', 'A resposta formal foi enviada ao solicitante.');
-    setCaseData((prev: any) => ({ ...prev, status: 'responded_solicitante' }));
+  const handleFinalize = () => {
+    Alert.alert('Finalizar atendimento', 'Deseja finalizar o atendimento deste caso?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Finalizar',
+        style: 'destructive',
+        onPress: () => {
+          setCaseData((prev: any) => ({ ...prev, status: 'responded_solicitante' }));
+          const idx = simulatedCases.findIndex(c => c.id === caseId);
+          if (idx >= 0) simulatedCases[idx].status = 'responded_solicitante' as any;
+        },
+      },
+    ]);
   };
+
+  const isPendingSolicitante = currentUser.type === 'solicitante' && caseData.status === 'pending';
+  const isInAnalysisSolicitante = currentUser.type === 'solicitante' && caseData.status === 'in_analysis_solicitante';
+  const isFinalizedSolicitante = currentUser.type === 'solicitante' && caseData.status === 'responded_solicitante';
 
   return (
     <View style={styles.fullContainer}>
-      {/* REMOVEMOS O HEADER CUSTOMIZADO AQUI.
-          O HEADER DO REACT NAVIGATION (App.tsx) AGORA SERÁ USADO. */}
+      {showNotif && (
+        <View style={styles.notificationBanner}>
+          <Text style={styles.notificationText}>Uma resposta do especialista foi recebida e o caso está em andamento.</Text>
+        </View>
+      )}
 
-      <ScrollView contentContainerStyle={[styles.scrollViewContent, styles.pageContent]}>
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Detalhes do Caso</Text>
           <Text style={styles.detailText}><Text style={styles.detailLabel}>Motivo da Teleconsultoria:</Text> {caseData.motivoTeleconsultoria || 'Não informado'}</Text>
           <Text style={styles.detailText}><Text style={styles.detailLabel}>Dúvida Clínica:</Text> {caseData.duvidaClinica || 'Não informada'}</Text>
-          <Text style={styles.detailLabel}>Anexos:</Text>
-          <View style={styles.attachmentsContainer}>
-            <Text style={styles.attachmentText}>- Radiografia Periapical (simulada).jpg</Text>
-            <Text style={styles.attachmentText}>- Exame de Glicemia (simulado).pdf</Text>
-            <TouchableOpacity style={styles.viewAttachmentButton}>
-              <Text style={styles.viewAttachmentButtonText}>Visualizar Anexos</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.viewAttachmentButton} onPress={() => Alert.alert('PDF', 'Abrir PDF com o formulário enviado (simulado)')}>
+            <Text style={styles.viewAttachmentButtonText}>Visualizar Formulário (PDF)</Text>
+          </TouchableOpacity>
         </View>
 
-        {currentUser.type === 'solicitante' && caseData.specialistResponse && (
+        {isPendingSolicitante ? null : (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Resposta do Especialista</Text>
             <Text style={styles.specialistResponseText}>
-              <Text style={styles.detailLabel}>Especialista {currentUser.specialistName}:</Text> {caseData.specialistResponse}
+              {caseData.specialistResponse || 'Aguardando resposta do especialista...'}
             </Text>
-            <Text style={styles.detailText}><Text style={styles.detailLabel}>Encaminhamento necessário?</Text> {caseData.encaminhamento || 'Não'}</Text>
-            <Text style={styles.detailText}><Text style={styles.detailLabel}>Tempo sugerido de retorno:</Text> {caseData.tempoRetorno || 'Não especificado'}</Text>
-            <Text style={styles.detailText}><Text style={styles.detailLabel}>Observações:</Text> {caseData.observacoes || 'Nenhuma'}</Text>
+            <Text style={styles.detailText}><Text style={styles.detailLabel}>Encaminhamento necessário?</Text> {caseData.encaminhamento || '—'}</Text>
+            <Text style={styles.detailText}><Text style={styles.detailLabel}>Tempo sugerido de retorno:</Text> {caseData.tempoRetorno || '—'}</Text>
+            <Text style={styles.detailText}><Text style={styles.detailLabel}>Observações clínicas:</Text> {caseData.observacoes || '—'}</Text>
           </View>
         )}
 
-        {currentUser.type === 'especialista' && (
+        {(isInAnalysisSolicitante || isFinalizedSolicitante) && (
+          <TouchableOpacity style={[styles.finalizeButton, isFinalizedSolicitante && { opacity: 0.6 }]} onPress={handleFinalize} disabled={isFinalizedSolicitante}>
+            <Text style={styles.finalizeButtonText}>{isFinalizedSolicitante ? 'Atendimento finalizado' : 'Encerrar atendimento\n(quando não houver mais dúvidas)'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Histórico e Chat não aparecem quando pendente */}
+        {!isPendingSolicitante && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Sua Resposta Formal</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Digite sua resposta orientativa aqui..."
-              multiline
-              numberOfLines={4}
-              value={caseData.specialistResponse || ''}
-              onChangeText={(text) => setCaseData((prev: any) => ({ ...prev, specialistResponse: text }))}
-            />
-            <Text style={styles.detailLabel}>Encaminhamento necessário?</Text>
-            <View style={styles.radioGroup}>
-                <TouchableOpacity style={[styles.radioOption, caseData.encaminhamento === 'Sim' && styles.radioOptionSelected]}
-                                  onPress={() => setCaseData((prev: any) => ({ ...prev, encaminhamento: 'Sim' }))}>
-                    <Text style={[styles.radioText, caseData.encaminhamento === 'Sim' && styles.radioTextSelected]}>Sim</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.radioOption, caseData.encaminhamento === 'Não' && styles.radioOptionSelected]}
-                                  onPress={() => setCaseData((prev: any) => ({ ...prev, encaminhamento: 'Não' }))}>
-                    <Text style={[styles.radioText, caseData.encaminhamento === 'Não' && styles.radioTextSelected]}>Não</Text>
-                </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Histórico de Interações</Text>
+            <View style={styles.chatContainer}>
+              {chatMessages.map((msg) => (
+                <View
+                  key={msg.id}
+                  style={[styles.messageBubble, msg.sender === currentUser.type ? styles.myMessage : styles.otherMessage]}
+                >
+                  <Text style={styles.senderName}>
+                    {msg.sender === 'solicitante' ? 'Você' : currentUser.specialistName}
+                  </Text>
+                  <Text style={styles.messageText}>{msg.message}</Text>
+                  <Text style={styles.timestamp}>{msg.timestamp}</Text>
+                </View>
+              ))}
             </View>
-            {caseData.encaminhamento === 'Sim' && (
-              <TextInput style={styles.input} placeholder="Para qual especialidade?" value={caseData.especialidadeEncaminhamento || ''} onChangeText={(text) => setCaseData((prev: any) => ({ ...prev, especialidadeEncaminhamento: text }))} />
-            )}
-            <TextInput style={styles.input} placeholder="Tempo sugerido de retorno ou nova consulta" value={caseData.tempoRetorno || ''} onChangeText={(text) => setCaseData((prev: any) => ({ ...prev, tempoRetorno: text }))} />
-            <TextInput style={styles.input} placeholder="Observações clínicas" value={caseData.observacoes || ''} onChangeText={(text) => setCaseData((prev: any) => ({ ...prev, observacoes: text }))} />
-
-            <TouchableOpacity
-              style={styles.specialistResponseButton}
-              onPress={handleSpecialistFormalResponse}
-              disabled={caseData.status === 'responded_solicitante'}
-            >
-              <Text style={styles.buttonText}>
-                {caseData.status === 'responded_solicitante' ? 'Resposta Já Enviada' : 'Enviar Resposta Formal'}
-              </Text>
-            </TouchableOpacity>
           </View>
         )}
-
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Histórico de Interações</Text>
-          <View style={styles.chatContainer}>
-            {chatMessages.map((msg, index) => (
-              <View
-                key={msg.id}
-                style={[
-                  styles.messageBubble,
-                  msg.sender === currentUser.type ? styles.myMessage : styles.otherMessage,
-                ]}
-              >
-                <Text style={styles.senderName}>
-                  {msg.sender === 'solicitante' ? 'Dr. João da Silva' : currentUser.specialistName}
-                </Text>
-                <Text style={styles.messageText}>{msg.message}</Text>
-                {msg.attachment && (
-                  <TouchableOpacity style={styles.chatAttachment}>
-                    <Image source={require('../../assets/Icons/file.png')} style={styles.fileIcon} />
-                    <Text style={styles.chatAttachmentText}>{msg.attachment}</Text>
-                  </TouchableOpacity>
-                )}
-                <Text style={styles.timestamp}>{msg.timestamp}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
       </ScrollView>
 
-      <View style={[styles.messageInputContainer, styles.pageContent]}>
-        <TextInput
-          style={styles.messageInput}
-          placeholder="Digite sua mensagem..."
-          placeholderTextColor="#999"
-          value={currentMessage}
-          onChangeText={setCurrentMessage}
-        />
-        <TouchableOpacity style={styles.attachButton}>
-          <Image source={require('../../assets/Icons/folder.png')} style={styles.attachIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-          <Image source={require('../../assets/Icons/paper-plane.png')} style={styles.sendIcon} />
-        </TouchableOpacity>
-      </View>
+      {/* Barra de digitação fixa */}
+      {!isPendingSolicitante && (
+        <View style={[styles.messageInputContainer, isFinalizedSolicitante && { opacity: 0.6 }] }>
+          <TextInput
+            style={styles.messageInput}
+            placeholder={isFinalizedSolicitante ? 'Chat encerrado' : 'Digite sua mensagem...'}
+            placeholderTextColor="#999"
+            value={currentMessage}
+            onChangeText={setCurrentMessage}
+            editable={!isFinalizedSolicitante}
+          />
+          <TouchableOpacity style={styles.attachButton} disabled>
+            <Image source={require('../../assets/Icons/folder.png')} style={styles.attachIcon} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage} disabled={isFinalizedSolicitante}>
+            <Image source={require('../../assets/Icons/paper-plane.png')} style={styles.sendIcon} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   fullContainer: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: 0,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  notificationBanner: {
+    backgroundColor: '#e6f4ea',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2e7d32',
+    padding: 12,
+  },
+  notificationText: {
+    color: '#1b5e20',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   scrollViewContent: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 50,
-  },
-  pageContent: {
-    width: '100%',
-    maxWidth: 1024,
-    marginHorizontal: 'auto',
+    paddingBottom: 90,
   },
   sectionContainer: {
     backgroundColor: colors.white,
     borderRadius: 10,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -269,32 +258,28 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.primaryText,
-    marginBottom: 15,
+    marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 5,
+    paddingBottom: 6,
   },
   detailText: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.secondaryText,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   detailLabel: {
     fontWeight: 'bold',
     color: colors.primaryText,
   },
-  attachmentsContainer: {
-    marginTop: 10,
+  specialistResponseText: {
+    fontSize: 15,
+    color: colors.primaryText,
     marginBottom: 10,
-  },
-  attachmentText: {
-    fontSize: 14,
-    color: colors.darkBlue,
-    textDecorationLine: 'underline',
-    marginBottom: 5,
+    lineHeight: 22,
   },
   viewAttachmentButton: {
     backgroundColor: colors.lightGray,
@@ -309,31 +294,9 @@ const styles = StyleSheet.create({
     color: colors.primaryText,
     fontWeight: 'bold',
   },
-  specialistResponseText: {
-    fontSize: 16,
-    color: colors.primaryText,
-    marginBottom: 10,
-    lineHeight: 22,
-  },
-  specialistResponseButton: {
-    backgroundColor: colors.success,
-    borderRadius: 10,
-    paddingVertical: 15,
-    marginTop: 20,
-    alignItems: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  buttonText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   chatContainer: {
     marginTop: 10,
+    maxHeight: 280,
   },
   messageBubble: {
     padding: 12,
@@ -343,14 +306,14 @@ const styles = StyleSheet.create({
   },
   myMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#DCF8C6', // Verde claro (mantido)
+    backgroundColor: '#DCF8C6',
     borderBottomRightRadius: 2,
   },
   otherMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F0F0F0', // Cinza claro (mantido)
+    backgroundColor: '#F0F0F0',
     borderBottomLeftRadius: 2,
-  },  
+  },
   senderName: {
     fontWeight: 'bold',
     marginBottom: 3,
@@ -380,6 +343,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 5,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   messageInput: {
     flex: 1,
@@ -409,66 +376,25 @@ const styles = StyleSheet.create({
     height: 24,
     tintColor: colors.darkBlue,
   },
-  chatAttachment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.mediumBlue,
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 5,
-    alignSelf: 'flex-start',
-  },
-  fileIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 5,
-    tintColor: colors.primaryText,
-  },
-  chatAttachmentText: {
-    fontSize: 14,
-    color: colors.darkBlue,
-    textDecorationLine: 'underline',
-  },
-  input: {
-    width: '100%',
-    height: 45,
-    borderColor: colors.lightGray,
+  finalizeButton: {
+    backgroundColor: colors.white,
+    borderRadius: 10,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 15,
-    fontSize: 16,
-    color: colors.primaryText,
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
+    borderColor: colors.lightGray,
     paddingVertical: 10,
-  },
-  radioGroup: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 15,
-    width: '100%',
-    gap: 20,
-  },
-  radioOption: {
-    flexDirection: 'row',
+    paddingHorizontal: 12,
+    marginTop: 12,
     alignItems: 'center',
-    backgroundColor: colors.lightGray,
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  radioOptionSelected: {
-    backgroundColor: colors.mediumBlue,
-  },
-  radioText: {
-    fontSize: 15,
+  finalizeButtonText: {
     color: colors.darkBlue,
-    fontWeight: 'bold',
-  },
-  radioTextSelected: {
-    color: colors.white,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

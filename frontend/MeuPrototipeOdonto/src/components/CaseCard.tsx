@@ -15,11 +15,13 @@ interface CaseData {
 interface CaseCardProps {
   caseData: CaseData;
   onPress: () => void;
+  isNew?: boolean;
 }
 
-const CaseCard: React.FC<CaseCardProps> = ({ caseData, onPress }) => {
+const CaseCard: React.FC<CaseCardProps> = ({ caseData, onPress, isNew }) => {
   return (
     <TouchableOpacity style={styles.cardContainer} onPress={onPress}>
+      {isNew ? <View style={styles.newDot} /> : null}
       <View style={styles.textContainer}>
         <Text style={styles.caseType}>{caseData.type} - {caseData.patientInitials}</Text>
         <Text style={styles.dateTime}>{caseData.date}</Text>
@@ -31,6 +33,7 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onPress }) => {
 
 const styles = StyleSheet.create({
   cardContainer: {
+    position: 'relative',
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     padding: 15,
@@ -45,19 +48,18 @@ const styles = StyleSheet.create({
     elevation: 3,
     width: '100%',
   },
-  textContainer: {
-    flex: 1,
+  newDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#D32F2F',
   },
-  caseType: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  dateTime: {
-    fontSize: 13,
-    color: '#777',
-  },
+  textContainer: { flex: 1 },
+  caseType: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
+  dateTime: { fontSize: 13, color: '#777' },
 });
 
 export default CaseCard;

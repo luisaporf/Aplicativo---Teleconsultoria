@@ -10,7 +10,10 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import RadioButton from '../components/RadioButton';
 import { RootStackParamList } from '../../App';
@@ -98,84 +101,155 @@ export default function ProfileScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={[styles.fullContainer, { minHeight: screenHeight }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        style={styles.scrollView}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={[styles.fullContainer, { minHeight: screenHeight }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        <View style={[styles.profileImageContainer, styles.pageContent]}>
-          <Image source={require('../../assets/user_profile.png')} style={styles.profileImage} />
+        <View style={styles.headerContainer}>
+          <TouchableOpacity
+            onPress={handleGoBack}
+            style={styles.iconButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+          </TouchableOpacity>
+          <View style={styles.iconButtonSpacer} />
         </View>
 
-        {isEditing ? (
-          <View style={[styles.formSection, styles.pageContent]}>
-            <Text style={styles.label}>NOME COMPLETO</Text>
-            <TextInput style={styles.input} value={profile.nomeCompleto} onChangeText={value => handleChange('nomeCompleto', value)} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          style={styles.scrollView}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[styles.profileImageContainer, styles.pageContent]}>
+            <Image source={require('../../assets/user_profile.png')} style={styles.profileImage} />
+          </View>
 
-            <Text style={styles.label}>EMAIL</Text>
-            <TextInput style={styles.input} value={profile.email} onChangeText={value => handleChange('email', value)} keyboardType="email-address" autoCapitalize="none" />
+          {isEditing ? (
+            <View style={[styles.formSection, styles.pageContent]}>
+              <Text style={styles.label}>NOME COMPLETO</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.nomeCompleto}
+                onChangeText={value => handleChange('nomeCompleto', value)}
+                placeholder="Seu nome completo"
+                placeholderTextColor={colors.placeholderText}
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
 
-            <Text style={styles.label}>CARTÃO NACIONAL DE SAÚDE</Text>
-            <TextInput style={styles.input} value={profile.cns} onChangeText={value => handleChange('cns', value)} keyboardType="numeric" />
+              <Text style={styles.label}>EMAIL</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.email}
+                onChangeText={value => handleChange('email', value)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="seuemail@exemplo.com"
+                placeholderTextColor={colors.placeholderText}
+                returnKeyType="next"
+              />
 
-            <Text style={styles.label}>FUNÇÃO/CARGO</Text>
-            <View style={styles.radioGroup}>
-              <RadioButton label="Dentista" selected={profile.funcaoCargo === 'Dentista'} onPress={() => handleFunctionChange('Dentista')} />
-              <RadioButton label="Médico" selected={profile.funcaoCargo === 'Médico'} onPress={() => handleFunctionChange('Médico')} />
-              <RadioButton label="Outra" selected={profile.funcaoCargo === 'Outra'} onPress={() => handleFunctionChange('Outra')} />
+              <Text style={styles.label}>CARTÃO NACIONAL DE SAÚDE</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.cns}
+                onChangeText={value => handleChange('cns', value)}
+                keyboardType="numeric"
+                placeholder="000-000-000"
+                placeholderTextColor={colors.placeholderText}
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>FUNÇÃO/CARGO</Text>
+              <View style={styles.radioGroup}>
+                <RadioButton label="Dentista" selected={profile.funcaoCargo === 'Dentista'} onPress={() => handleFunctionChange('Dentista')} />
+                <RadioButton label="Médico" selected={profile.funcaoCargo === 'Médico'} onPress={() => handleFunctionChange('Médico')} />
+                <RadioButton label="Outra" selected={profile.funcaoCargo === 'Outra'} onPress={() => handleFunctionChange('Outra')} />
+              </View>
+
+              <Text style={styles.label}>UNIDADE DE SAÚDE</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.unidadeSaude}
+                onChangeText={value => handleChange('unidadeSaude', value)}
+                placeholder="Nome da unidade"
+                placeholderTextColor={colors.placeholderText}
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>MUNICÍPIO</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.municipio}
+                onChangeText={value => handleChange('municipio', value)}
+                placeholder="Cidade"
+                placeholderTextColor={colors.placeholderText}
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>ESTADO</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.estado}
+                onChangeText={value => handleChange('estado', value)}
+                placeholder="UF"
+                placeholderTextColor={colors.placeholderText}
+                autoCapitalize="characters"
+                maxLength={2}
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>TELEFONE</Text>
+              <TextInput
+                style={styles.input}
+                value={profile.telefone}
+                onChangeText={value => handleChange('telefone', value)}
+                keyboardType="phone-pad"
+                placeholder="(00) 00000-0000"
+                placeholderTextColor={colors.placeholderText}
+                returnKeyType="done"
+              />
+
+              <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} activeOpacity={0.9}>
+                <Text style={styles.buttonText}>Salvar Perfil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditing(false)} activeOpacity={0.9}>
+                <Text style={styles.cancelButtonText}>Voltar</Text>
+              </TouchableOpacity>
             </View>
+          ) : (
+            <View style={[styles.infoSection, styles.pageContent]}>
+              <Text style={styles.infoLabel}>NOME COMPLETO</Text>
+              <Text style={styles.infoValue}>{profile.nomeCompleto || 'seu nome completo'}</Text>
+              <Text style={styles.infoValueSmall}>{profile.email || 'seu melhor e-mail'}</Text>
 
-            <Text style={styles.label}>UNIDADE DE SAÚDE</Text>
-            <TextInput style={styles.input} value={profile.unidadeSaude} onChangeText={value => handleChange('unidadeSaude', value)} />
+              <Text style={styles.infoLabel}>CARTÃO NACIONAL DE SAÚDE</Text>
+              <Text style={styles.infoValue}>{profile.cns || 'seu CNS'}</Text>
 
-            <Text style={styles.label}>MUNICÍPIO</Text>
-            <TextInput style={styles.input} value={profile.municipio} onChangeText={value => handleChange('municipio', value)} />
+              <Text style={styles.infoLabel}>FUNÇÃO/CARGO</Text>
+              <Text style={styles.infoValue}>{profile.funcaoCargo || 'selecione sua função'}</Text>
 
-            <Text style={styles.label}>ESTADO</Text>
-            <TextInput style={styles.input} value={profile.estado} onChangeText={value => handleChange('estado', value)} />
+              <Text style={styles.infoLabel}>UNIDADE DE SAÚDE</Text>
+              <Text style={styles.infoValue}>{profile.unidadeSaude || 'sua unidade de saúde'}</Text>
 
-            <Text style={styles.label}>TELEFONE</Text>
-            <TextInput style={styles.input} value={profile.telefone} onChangeText={value => handleChange('telefone', value)} keyboardType="phone-pad" />
+              <Text style={styles.infoLabel}>MUNICÍPIO</Text>
+              <Text style={styles.infoValue}>{profile.municipio || 'seu município'}</Text>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-              <Text style={styles.buttonText}>Salvar Perfil</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditing(false)}>
-              <Text style={styles.cancelButtonText}>Voltar</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={[styles.infoSection, styles.pageContent]}>
-            <Text style={styles.infoLabel}>NOME COMPLETO</Text>
-            <Text style={styles.infoValue}>{profile.nomeCompleto || 'seu nome completo'}</Text>
-            <Text style={styles.infoValueSmall}>{profile.email || 'seu melhor e-mail'}</Text>
+              <Text style={styles.infoLabel}>ESTADO</Text>
+              <Text style={styles.infoValue}>{profile.estado || 'seu estado'}</Text>
 
-            <Text style={styles.infoLabel}>CARTÃO NACIONAL DE SAÚDE</Text>
-            <Text style={styles.infoValue}>{profile.cns || 'seu CNS'}</Text>
+              <Text style={styles.infoLabel}>TELEFONE</Text>
+              <Text style={styles.infoValue}>{profile.telefone || 'seu telefone'}</Text>
 
-            <Text style={styles.infoLabel}>FUNÇÃO/CARGO</Text>
-            <Text style={styles.infoValue}>{profile.funcaoCargo || 'selecione sua função'}</Text>
-
-            <Text style={styles.infoLabel}>UNIDADE DE SAÚDE</Text>
-            <Text style={styles.infoValue}>{profile.unidadeSaude || 'sua unidade de saúde'}</Text>
-
-            <Text style={styles.infoLabel}>MUNICÍPIO</Text>
-            <Text style={styles.infoValue}>{profile.municipio || 'seu município'}</Text>
-
-            <Text style={styles.infoLabel}>ESTADO</Text>
-            <Text style={styles.infoValue}>{profile.estado || 'seu estado'}</Text>
-
-            <Text style={styles.infoLabel}>TELEFONE</Text>
-            <Text style={styles.infoValue}>{profile.telefone || 'seu telefone'}</Text>
-
-            <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)}>
-              <Text style={styles.buttonText}>Editar Perfil</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+              <TouchableOpacity style={styles.editButton} onPress={() => setIsEditing(true)} activeOpacity={0.9}>
+                <Text style={styles.buttonText}>Editar Perfil</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -183,6 +257,47 @@ const styles = StyleSheet.create({
   fullContainer: {
     flex: 1,
     backgroundColor: colors.lightBlue, // Fundo principal da tela
+  },
+  headerContainer: {
+    width: '100%',
+    maxWidth: 1024,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    color: colors.primaryText,
+    fontWeight: '700',
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  iconButtonSpacer: {
+    width: 36,
+    height: 36,
+  },
+  iconImage: {
+    width: 18,
+    height: 18,
+    tintColor: colors.darkBlue,
+    resizeMode: 'contain',
   },
   scrollView: {
     flex: 1,
@@ -211,11 +326,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: colors.lightBlue, // Borda da imagem de perfil
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    elevation: 3,
   },
   profileImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+    borderRadius: 60,
   },
   infoSection: {
     width: '100%',
@@ -286,9 +407,11 @@ const styles = StyleSheet.create({
   },
   radioGroup: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
     marginBottom: 14,
     width: '100%',
+    gap: 8,
   },
   saveButton: {
     width: '100%',
